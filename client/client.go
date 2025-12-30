@@ -32,7 +32,10 @@ func (c *Client) SendRequest() error {
 		return err
 	}
 	c.conn = conn
-	c.conn.Write([]byte("HELLO THERE"))
+
+	fakeHttp := "GET /some/path HTTP/1.1\r\nHost: example.com\r\nUser-Agent: fake-client\r\nAccept: */*\r\n\r\n"
+	c.conn.Write([]byte(fakeHttp))
+
 	c.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 6000))
 	buf := make([]byte, 1024)
 	c.conn.Read(buf)

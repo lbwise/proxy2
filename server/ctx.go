@@ -9,7 +9,8 @@ import (
 	"sync"
 	"time"
 
-	comp "github.com/lbwise/learning/compressor/algos"
+	_ "github.com/lbwise/learning/compressor/algos"
+	"github.com/lbwise/proxy/http"
 )
 
 func NewCtx(conn net.Conn, lg *log.Logger) *Ctx {
@@ -54,21 +55,31 @@ func (c *Ctx) Handle(wg *sync.WaitGroup) {
 
 	msg, err := c.Read()
 	if err != nil {
-		c.Error(err)
+		c.Fatal(err)
+		return
 	}
-	compMsg, err := comp.NewCompressionAlgo(comp.RLEType, comp.NewAlgoConfig()).Compress(msg)
+	req, err := http.NewRequest(msg)
+	if err != nil {
+		c.Fatal(err)
+		return
+	}
+
+	c.Log("REQUEST: %s", req.Method)
 
 	if err != nil {
 		c.Error(err)
-		c.conn.Close()
+	}
+	//compMsg, err := comp.NewCompressionAlgo(comp.RLEType, comp.NewAlgoConfig()).Compress(msg)
+
+	if err != nil {
+		c.Fatal(err)
 		return
 	}
-	c.Log("COMP MSG RECEIVED: %s", string(compMsg))
+	c.Log("COMP MSG RECEIVED: %s", msg)
 
 	port, _ := strconv.Atoi(c.conn.RemoteAddr().String()[10:])
 	if port > 60100 {
-		c.Error(errors.New(fmt.Sprintf("INVALID PORT RECEIVED: %d", port)))
-		c.conn.Close()
+		c.Fatal(errors.New(fmt.Sprintf("INVALID PORT RECEIVED: %d", port)))
 		wg.Done()
 		return
 	}
@@ -83,4 +94,9 @@ func (c *Ctx) Log(msg string, args ...interface{}) {
 
 func (c *Ctx) Error(err error) {
 	c.log.Println(err.Error())
+}
+
+func (c *Ctx) Fatal(err error) {
+	c.log.Println(err.Error())
+	c.conn.Close()
 }
