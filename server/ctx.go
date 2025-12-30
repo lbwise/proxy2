@@ -58,23 +58,21 @@ func (c *Ctx) Handle(wg *sync.WaitGroup) {
 		c.Fatal(err)
 		return
 	}
-	req, err := http.NewRequest(msg)
+	parser := http.NewParser(msg)
+	httpReq, err := parser.Parse()
 	if err != nil {
 		c.Fatal(err)
 		return
 	}
 
-	c.Log("REQUEST: %s", req.Method)
+	c.Log("REQUEST METHOD: %s", httpReq.String())
 
-	if err != nil {
-		c.Error(err)
-	}
 	//compMsg, err := comp.NewCompressionAlgo(comp.RLEType, comp.NewAlgoConfig()).Compress(msg)
+	//if err != nil {
+	//	c.Fatal(err)
+	//	return
+	//}
 
-	if err != nil {
-		c.Fatal(err)
-		return
-	}
 	c.Log("COMP MSG RECEIVED: %s", msg)
 
 	port, _ := strconv.Atoi(c.conn.RemoteAddr().String()[10:])
