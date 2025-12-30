@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -31,6 +32,11 @@ func (c *Client) SendRequest() error {
 		return err
 	}
 	c.conn = conn
+	c.conn.Write([]byte("HELLO THERE"))
+	c.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 6000))
+	buf := make([]byte, 1024)
+	c.conn.Read(buf)
+	fmt.Println(string(buf))
 	return nil
 }
 
@@ -53,6 +59,7 @@ func Simulate() {
 
 	err = c3.SendRequest()
 	if err != nil {
+		fmt.Println(err)
 		log.Fatal(err)
 	}
 
