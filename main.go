@@ -3,14 +3,21 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/lbwise/proxy/client"
+	"github.com/lbwise/proxy/dest"
 	"github.com/lbwise/proxy/server"
 )
+
+/*
+Okay so really we want in order:
+set up dest srv -> pass config to proxy -> spin up proxy -> create clients -> simulate traffic
+*/
 
 func main() {
 	logger, closer, err := NewLogger()
@@ -21,7 +28,14 @@ func main() {
 	defer closer()
 
 	wg := &sync.WaitGroup{}
-	server.SpinServer(wg, logger)
+	wg.Add(1)
+	go dest.StartApp()
+	server.SpinServer(
+		server.NewDefaultProxyConfig(&net.TCPAddr{
+			IP:   net.ParseIP("127.0.0.1"),
+			Port: 8080,
+		}),
+		wg, logger)
 
 	client.Simulate()
 	wg.Done()

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"time"
 )
 
@@ -26,20 +27,20 @@ func (c *Client) SetDuration(duration int) error {
 }
 
 func (c *Client) SendRequest() error {
-	time.Sleep(c.reqDuration)
-	conn, err := net.Dial("tcp", "127.0.0.1:8080")
+	req, err := http.NewRequest("GET", "http://localhost:9000/ping", nil)
 	if err != nil {
 		return err
 	}
-	c.conn = conn
 
-	fakeHttp := "GET /some/path HTTP/1.1\r\nHost: example.com\r\nUser-Agent: fake-client\r\nAccept: */*\r\n\r\n"
-	c.conn.Write([]byte(fakeHttp))
+	req.Header.Add("Host", "liamwise")
 
-	c.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 6000))
-	buf := make([]byte, 1024)
-	c.conn.Read(buf)
-	fmt.Println(string(buf))
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	fmt.Printf("\nCOMPLETED STATUS: %s\n", res.StatusCode)
 	return nil
 }
 
