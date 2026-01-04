@@ -20,7 +20,7 @@ set up dest srv -> pass config to proxy -> spin up proxy -> create clients -> si
 */
 
 func main() {
-	logger, closer, err := NewLogger()
+	baseLogger, closer, err := NewBaseLogger()
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -29,29 +29,34 @@ func main() {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go dest.StartApp()
+
+	destLog := log.New(baseLogger.Writer(), "[DEST] ", baseLogger.Flags())
+	destServers, err := dest.SpinServers(destLog)
+
+	proxyLog := log.New(baseLogger.Writer(), "[PROXY] ", baseLogger.Flags())
 	server.SpinServer(
 		server.NewDefaultProxyConfig(&net.TCPAddr{
-			IP:   net.ParseIP("127.0.0.1"),
-			Port: 8080,
+			IP:   net.ParseIP(destServers[0].Addr),
+			Port: destServers[0].Port,
 		}),
-		wg, logger)
+		wg, proxyLog)
 
-	client.Simulate()
+	clientLog := log.New(baseLogger.Writer(), "[CLIENT] ", baseLogger.Flags())
+	client.Simulate(clientLog)
 	wg.Done()
 
 	wg.Wait()
-	logger.Println("GRACEFULLY CLOSING SERVER")
+	proxyLog.Println("GRACEFULLY CLOSING SERVER")
 }
 
-func NewLogger() (*log.Logger, func() error, error) {
+func NewBaseLogger() (*log.Logger, func() error, error) {
 	dtime := strings.Join(strings.Split(time.Now().String()[:19], " "), "-")
 	f, err := os.Create(fmt.Sprintf("./logs/prox-server-%s", dtime))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	logger := log.New(f, "SERVER: ", log.LstdFlags)
+	logger := log.New(f, "", log.LstdFlags)
 
 	return logger, f.Close, nil
 }

@@ -2,20 +2,20 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"time"
 )
 
-func NewClient() *Client {
-	return &Client{}
+func NewClient(logger *log.Logger) *Client {
+	return &Client{logger: logger}
 }
 
 type Client struct {
 	conn        net.Conn
 	reqDuration time.Duration
+	logger      *log.Logger
 }
 
 func (c *Client) SetDuration(duration int) error {
@@ -32,39 +32,38 @@ func (c *Client) SendRequest() error {
 		return err
 	}
 
-	req.Header.Add("Host", "liamwise")
+	req.Host = "localhost:9000"
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Println(err)
+		c.logger.Println(err)
 		return err
 	}
 
-	fmt.Printf("\nCOMPLETED STATUS: %s\n", res.StatusCode)
+	c.logger.Println("COMPLETED STATUS:", res.StatusCode)
 	return nil
 }
 
-func Simulate() {
-	c1 := NewClient()
-	c2 := NewClient()
-	c2.SetDuration(500)
+func Simulate(logger *log.Logger) {
+	c1 := NewClient(logger)
+	c2 := NewClient(logger)
+	c3 := NewClient(logger)
 
-	c3 := NewClient()
+	c2.SetDuration(500)
 
 	err := c1.SendRequest()
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	err = c2.SendRequest()
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	err = c3.SendRequest()
 	if err != nil {
-		fmt.Println(err)
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 }
