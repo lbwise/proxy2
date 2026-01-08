@@ -4,40 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/rand"
 	"net"
 	"sync"
+
+	"github.com/lbwise/proxy/cfg"
 )
 
-func DefaultConfig() *Config {
-	return &Config{
-		Ports: []int{8080, 8081, 8082, 8083},
-	}
-}
-
-type Config struct {
-	Ports []int
-}
-
-/*
-TODO:
-[x] properly implement conn id and requeset id
-[] add header injection and passing blocking
-[] add analytics for proxy
-[] add multiple destination server spin
-[] add active connections and rate limiting
-
-
-proxy will now need to manage lots of things like (ideally)
-active connections count -> rate limiting
-header forwarding
-blocking admin routes
-req latency
-load balancing
-config file for proxy setup and handling multiple dest servers/clients/connections
-*/
-
-func SpinServer(ctx context.Context, config *Config, logger *log.Logger) {
+func SpinServer(ctx context.Context, config *cfg.ProxyConfig, logger *log.Logger) {
 	ln, err := net.Listen("tcp", ":9000")
 	if err != nil {
 		logger.Fatal(err)
@@ -65,7 +38,7 @@ func SpinServer(ctx context.Context, config *Config, logger *log.Logger) {
 		}
 
 		logger.Printf("accented new connection from %v", clientNetConn.RemoteAddr())
-		destNetConn, err := ConnectToDest(config)
+		destNetConn, err := connectToDest(config)
 
 		conn := NewConn(clientNetConn, destNetConn, logger)
 		if err != nil {
@@ -85,10 +58,18 @@ func SpinServer(ctx context.Context, config *Config, logger *log.Logger) {
 	logger.Println("Shutting down proxy")
 }
 
-func ConnectToDest(config *Config) (net.Conn, error) {
-	destNetConn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", config.Ports[rand.Intn(4)]))
+func connectToDest(config *cfg.ProxyConfig) (net.Conn, error) {
+	destNetConn, err := net.Dial("tcp", getDestAddr(config))
 	if err != nil {
 		return nil, err
 	}
 	return destNetConn, nil
+}
+
+// This will need to be some proxy struct method to analyze bandwith for other deciding
+func getDestAddr(config *cfg.ProxyConfig) string {
+	switch config.LoadBalanceType {
+	default:
+		return fmt.Sprintf("%s:%d", config.DestAddr, config.DestPorts.Random())
+	}
 }

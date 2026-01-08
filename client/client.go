@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/lbwise/proxy/cfg"
 )
 
 func NewClient(logger *log.Logger) *Client {
@@ -32,11 +34,43 @@ func (c *Client) SetDuration(duration int) error {
 	return nil
 }
 
-func (c *Client) SendRequest(ctx context.Context) error {
+// Simulate will have a list of instructions that each wait for each
+func Simulate(ctx context.Context, config *cfg.ClientSimulationConfig, logger *log.Logger) {
+	var wg sync.WaitGroup
+	for i, instr := range config.Flow {
+		logger.Printf("Running instruction: %d", i)
+		wg.Add(1)
+
+		time.Sleep(instr.WaitBefore)
+
+		go func() {
+			defer wg.Done()
+			var instrWg sync.WaitGroup
+			for i := 0; i < instr.NumAgents; i++ {
+				instrWg.Add(1)
+				go func() {
+					defer instrWg.Done()
+					client := NewClient(logger)
+					if err := client.SendRequest(ctx, instr); err != nil {
+						logger.Printf("Client %d failed with error: %s", i, err)
+					}
+				}()
+			}
+			instrWg.Wait()
+		}()
+
+		logger.Printf("Finishing instruction: %d", i)
+	}
+
+	wg.Wait()
+	fmt.Println("SIMULATION COMPLETED")
+}
+
+func (c *Client) SendRequest(ctx context.Context, instr cfg.CSInstruction) error {
 	reqCtx, cancel := context.WithTimeout(ctx, c.deadline)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(reqCtx, "GET", "http://localhost:9000/ping", nil)
+	req, err := http.NewRequestWithContext(reqCtx, "GET", fmt.Sprintf("http://localhost:9000%s", instr.ReqPath), instr.ReqBody)
 	if err != nil {
 		return err
 	}
@@ -64,26 +98,4 @@ func (c *Client) SendRequest(ctx context.Context) error {
 	case err := <-reqErr:
 		return err
 	}
-}
-
-func Simulate(ctx context.Context, logger *log.Logger) {
-	clients := make([]*Client, 100)
-	for i := 0; i < 100; i++ {
-		clients[i] = NewClient(logger)
-	}
-
-	var wg sync.WaitGroup
-	for i, client := range clients {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-			if err := client.SendRequest(ctx); err != nil {
-				logger.Printf("Client %d failed with error: %s", i, err)
-			}
-		}()
-	}
-
-	wg.Wait()
-	fmt.Println("SIMULATION COMPLETED")
 }

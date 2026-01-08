@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lbwise/proxy/cfg"
 	"github.com/lbwise/proxy/client"
 	"github.com/lbwise/proxy/dest"
 	"github.com/lbwise/proxy/proxy"
@@ -34,6 +35,16 @@ func main() {
 
 	wg.Add(3)
 
+	csConfig := cfg.DefaultCSConfig()
+
+	destPorts := cfg.PortRange{Start: 8080, End: 8084}
+	cf := &cfg.ProxySimConfig{
+		DestAddr:               "localhost",
+		DestPortRange:          destPorts,
+		ClientSimulationConfig: csConfig,
+		ProxyConfig:            cfg.DefaultProxyConfig("localhost", destPorts),
+	}
+
 	// Spin up destination servers
 	go func() {
 		defer wg.Done()
@@ -52,7 +63,7 @@ func main() {
 		proxyLog := log.New(baseLogger.Writer(), "[PROXY] ", baseLogger.Flags())
 		proxy.SpinServer(
 			ctx,
-			proxy.DefaultConfig(),
+			cf.ProxyConfig,
 			proxyLog)
 	}()
 
@@ -62,7 +73,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 		clientLog := log.New(baseLogger.Writer(), "[CLIENT] ", baseLogger.Flags())
-		client.Simulate(ctx, clientLog)
+		client.Simulate(ctx, cf.ClientSimulationConfig, clientLog)
 	}()
 
 	waitCloseSignal()
@@ -87,16 +98,3 @@ func NewBaseLogger() (*log.Logger, func() error, error) {
 
 	return logger, f.Close, nil
 }
-
-/*
-what does a proxy do?
-
-takes incoming requests, and at each layer anaylzes and forward/blocks requests
-configurable from the user (config file?)
-logs traffic and latency
-content based routing
-
-examples:
-- HTTP layer: inspects content
-- TCP layer: blocks ports
-*/
