@@ -67,10 +67,9 @@ func (c *Client) SendRequest(ctx context.Context) error {
 }
 
 func Simulate(ctx context.Context, logger *log.Logger) {
-	clients := []*Client{
-		NewClient(logger),
-		NewClient(logger),
-		NewClient(logger),
+	clients := make([]*Client, 100)
+	for i := 0; i < 100; i++ {
+		clients[i] = NewClient(logger)
 	}
 
 	var wg sync.WaitGroup
@@ -86,4 +85,5 @@ func Simulate(ctx context.Context, logger *log.Logger) {
 	}
 
 	wg.Wait()
+	fmt.Println("SIMULATION COMPLETED")
 }

@@ -2,6 +2,7 @@ package dest
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -11,20 +12,22 @@ import (
 )
 
 type Server struct {
+	ID   uint8
 	Port int
 	Addr string
 }
 
 func SpinServers(ctx context.Context, logger *log.Logger) ([]*Server, error) {
 	servers := []*Server{
-		{Addr: "localhost", Port: 8080},
-		//{Addr: "localhost", Port: 8081},
-		//{Addr: "localhost", Port: 8082},
-		//{Addr: "localhost", Port: 8083},
+		{Addr: "localhost", Port: 8080, ID: 1},
+		{Addr: "localhost", Port: 8081, ID: 2},
+		{Addr: "localhost", Port: 8082, ID: 3},
+		{Addr: "localhost", Port: 8083, ID: 4},
 	}
 
 	var wg sync.WaitGroup
 	for _, srv := range servers {
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			err := createApp(ctx, srv, logger)
@@ -45,13 +48,13 @@ func createApp(ctx context.Context, srv *Server, logger *log.Logger) error {
 	router := gin.Default()
 
 	httpSrv := &http.Server{
-		Addr:    "localhost:8080",
+		Addr:    fmt.Sprintf("%s:%d", srv.Addr, srv.Port),
 		Handler: router,
 	}
 	logger.Printf("Spinning up instance on: %d\n", srv.Port)
 
 	router.GET("/ping", func(c *gin.Context) {
-		logger.Println("RECIEVED", c.Request.Method)
+		logger.Println("RECIEVED", srv.ID, c.Request.Method)
 		time.Sleep(1 * time.Second)
 		c.String(http.StatusOK, "pong")
 	})
@@ -66,7 +69,7 @@ func createApp(ctx context.Context, srv *Server, logger *log.Logger) error {
 	// So ctx gets shutdown signal from root
 	// But create new timeout ctx in case Shutdown takes too long to sort itself out
 	<-ctx.Done()
-	logger.Println("Shutting down the server...")
+	logger.Printf("[:%d] shutting down the server\n", srv.Port)
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return httpSrv.Shutdown(shutdownCtx)

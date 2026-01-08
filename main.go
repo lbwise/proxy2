@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"strings"
@@ -37,6 +36,7 @@ func main() {
 
 	// Spin up destination servers
 	go func() {
+		defer wg.Done()
 		destLog := log.New(baseLogger.Writer(), "[DEST] ", baseLogger.Flags())
 		_, err := dest.SpinServers(ctx, destLog)
 		if err != nil {
@@ -48,15 +48,11 @@ func main() {
 
 	// Spin up proxy
 	go func() {
+		defer wg.Done()
 		proxyLog := log.New(baseLogger.Writer(), "[PROXY] ", baseLogger.Flags())
 		proxy.SpinServer(
 			ctx,
-			proxy.DefaultConfig(&net.TCPAddr{
-				//IP:   net.ParseIP(destServers[0].Addr),
-				//Port: destServers[0].Port,
-				IP:   net.ParseIP("127.0.0.1"),
-				Port: 8080,
-			}),
+			proxy.DefaultConfig(),
 			proxyLog)
 	}()
 
@@ -64,6 +60,7 @@ func main() {
 
 	// Simulate clients
 	go func() {
+		defer wg.Done()
 		clientLog := log.New(baseLogger.Writer(), "[CLIENT] ", baseLogger.Flags())
 		client.Simulate(ctx, clientLog)
 	}()

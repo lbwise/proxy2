@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	_ "github.com/lbwise/learning/compressor/algos"
@@ -16,7 +17,7 @@ import (
 
 func NewConn(clientConn, destConn net.Conn, lg *log.Logger) *Conn {
 	return &Conn{
-		ID:         1,
+		ID:         GenNextConnId(),
 		ClientConn: clientConn,
 		DestConn:   destConn,
 		Logger:     lg,
@@ -25,8 +26,16 @@ func NewConn(clientConn, destConn net.Conn, lg *log.Logger) *Conn {
 	}
 }
 
+var (
+	connIdCounter uint64
+)
+
+func GenNextConnId() uint64 {
+	return atomic.AddUint64(&connIdCounter, 1)
+}
+
 type Conn struct {
-	ID         int64
+	ID         uint64
 	ClientConn net.Conn
 	DestConn   net.Conn
 	Logger     *log.Logger
@@ -35,6 +44,7 @@ type Conn struct {
 	readSize   int
 }
 
+// We need to be able to accept multiple requests from the same connection
 func (c *Conn) Handle(ctx context.Context) {
 	// handle error
 	if c.DestConn == nil {
@@ -56,7 +66,6 @@ func (c *Conn) Handle(ctx context.Context) {
 		return
 	}
 
-	fmt.Println("conn msg: ", string(raw))
 	req := NewRequest(raw)
 	c.requests = append(c.requests, req)
 
@@ -67,16 +76,15 @@ func (c *Conn) Handle(ctx context.Context) {
 		return
 	}
 
-	c.Log("[REQ] %s %s host=%s agent=%s", httpReq.Method, httpReq.URL, httpReq.Host, httpReq.UserAgent())
+	c.Log("[REQ-%d] %s %s host=%s agent=%s", req.ID, httpReq.Method, httpReq.URL, httpReq.Host, httpReq.UserAgent())
 
-	fmt.Println("THE INPUT")
 	n, err := io.Copy(c.DestConn, bytes.NewReader(raw))
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.Log("forwarded request of %d bytes from %s to %s ", n, httpReq.Host, c.DestConn.RemoteAddr())
+	c.Log("[REQ-%d] forwarded request of %d bytes from %s to %s ", req.ID, n, httpReq.Host, c.DestConn.RemoteAddr())
 
 	// Take outgoing responses, mutate and forward
 	c.DestConn.SetDeadline(time.Now().Add(5000 * time.Millisecond))
@@ -86,20 +94,18 @@ func (c *Conn) Handle(ctx context.Context) {
 		c.Error(err)
 		return
 	}
-	c.Logger.Println(body)
 
 	_, err = io.Copy(c.ClientConn, bytes.NewReader(body))
 	if err != nil {
-		c.Logger.Println("2 THIS ERROR HERE")
 		c.Fatal(err)
 		return
 	}
 
-	c.Log("Connection to %s closed (%dms)", c.ClientConn.RemoteAddr(), time.Now().Sub(start).Milliseconds())
+	c.Log("[REQ-%d] connection to %s closed (%dms)", req.ID, c.ClientConn.RemoteAddr(), time.Now().Sub(start).Milliseconds())
 }
 
 func (c *Conn) Log(msg string, args ...interface{}) {
-	c.Logger.Println(fmt.Sprintf("conn-%d: %s", c.ID, fmt.Sprintf(msg, args...)))
+	c.Logger.Println(fmt.Sprintf("[CONN-%d]: %s", c.ID, fmt.Sprintf(msg, args...)))
 }
 
 func (c *Conn) Error(err error) {

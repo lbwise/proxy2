@@ -2,22 +2,26 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"sync"
 )
 
-func DefaultConfig(addr net.Addr) *Config {
-	return &Config{addr}
+func DefaultConfig() *Config {
+	return &Config{
+		Ports: []int{8080, 8081, 8082, 8083},
+	}
 }
 
 type Config struct {
-	dest net.Addr
+	Ports []int
 }
 
 /*
 TODO:
-[] properly implement conn id and requeset id
+[x] properly implement conn id and requeset id
 [] add header injection and passing blocking
 [] add analytics for proxy
 [] add multiple destination server spin
@@ -25,8 +29,6 @@ TODO:
 
 
 proxy will now need to manage lots of things like (ideally)
-request id
-conn id - x
 active connections count -> rate limiting
 header forwarding
 blocking admin routes
@@ -54,7 +56,6 @@ func SpinServer(ctx context.Context, config *Config, logger *log.Logger) {
 	var wg sync.WaitGroup
 	for {
 		clientNetConn, err := ln.Accept()
-		logger.Printf("accented new connection from %v", clientNetConn.RemoteAddr())
 		if err != nil {
 			if ctx.Err() != nil {
 				break
@@ -63,14 +64,12 @@ func SpinServer(ctx context.Context, config *Config, logger *log.Logger) {
 			continue
 		}
 
-		destNetConn, err := net.Dial("tcp", config.dest.String())
-		if err != nil {
-			logger.Println(err)
-		}
+		logger.Printf("accented new connection from %v", clientNetConn.RemoteAddr())
+		destNetConn, err := ConnectToDest(config)
 
 		conn := NewConn(clientNetConn, destNetConn, logger)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("[ERR]:", err)
 		}
 
 		wg.Add(1)
@@ -84,4 +83,12 @@ func SpinServer(ctx context.Context, config *Config, logger *log.Logger) {
 	wg.Wait()
 
 	logger.Println("Shutting down proxy")
+}
+
+func ConnectToDest(config *Config) (net.Conn, error) {
+	destNetConn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", config.Ports[rand.Intn(4)]))
+	if err != nil {
+		return nil, err
+	}
+	return destNetConn, nil
 }
