@@ -1,19 +1,17 @@
-package server
+package proxy
 
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
-	"github.com/bytedance/gopkg/util/logger"
 	_ "github.com/lbwise/learning/compressor/algos"
-	"github.com/ugorji/go/codec"
 )
 
 func NewConn(clientConn, destConn net.Conn, lg *log.Logger) *Conn {
@@ -37,18 +35,17 @@ type Conn struct {
 	readSize   int
 }
 
-func (c *Conn) Handle(wg *sync.WaitGroup) {
+func (c *Conn) Handle(ctx context.Context) {
 	// handle error
-	if c.DestConn != nil {
+	if c.DestConn == nil {
 		return
-	} else if c.ClientConn != nil {
+	} else if c.ClientConn == nil {
 		return
 	}
 
 	defer func() {
 		c.DestConn.Close()
 		c.ClientConn.Close()
-		wg.Done()
 	}()
 
 	start := time.Now()
@@ -59,73 +56,46 @@ func (c *Conn) Handle(wg *sync.WaitGroup) {
 		return
 	}
 
+	fmt.Println("conn msg: ", string(raw))
 	req := NewRequest(raw)
+	c.requests = append(c.requests, req)
 
 	// Take incoming requests, mutate and forward
-	req, err :=
-
-		c.Log("[REQ] %s %s host=%s agent=%s", req.Method, req.URL, req.Host, req.UserAgent())
+	httpReq, err := http.ReadRequest(bufio.NewReader(req.raw))
 	if err != nil {
-		return
-	}
-	c.req = req
-
-	buf := new(bytes.Buffer)
-	err = c.req.Write(buf)
-	if err != nil {
-		c.Fatal(err)
+		c.Error(err)
 		return
 	}
 
-	err = c.forward(buf, destConn)
+	c.Log("[REQ] %s %s host=%s agent=%s", httpReq.Method, httpReq.URL, httpReq.Host, httpReq.UserAgent())
+
+	fmt.Println("THE INPUT")
+	n, err := io.Copy(c.DestConn, bytes.NewReader(raw))
 	if err != nil {
-		c.Fatal(err)
+		c.Error(err)
 		return
 	}
+
+	c.Log("forwarded request of %d bytes from %s to %s ", n, httpReq.Host, c.DestConn.RemoteAddr())
 
 	// Take outgoing responses, mutate and forward
-	destConn.SetDeadline(time.Now().Add(5000 * time.Millisecond))
-	c.res, err = c.ingestRes(destConn)
+	c.DestConn.SetDeadline(time.Now().Add(5000 * time.Millisecond))
+
+	body, err := ReadFromConn(c.DestConn)
 	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Logger.Println(body)
+
+	_, err = io.Copy(c.ClientConn, bytes.NewReader(body))
+	if err != nil {
+		c.Logger.Println("2 THIS ERROR HERE")
 		c.Fatal(err)
 		return
 	}
 
-	resBuf := new(bytes.Buffer)
-	err = c.res.Write(resBuf)
-	if err != nil {
-		c.Fatal(err)
-		return
-	}
-
-	err = c.forward(resBuf, c.conn)
-	if err != nil {
-		c.Fatal(err)
-		return
-	}
-
-	c.Log("Connection to %s closed (%dms)", c.conn.RemoteAddr(), time.Now().Sub(start).Milliseconds())
-}
-
-func BufferToHttpReq(r io.Reader) (*http.Request, error) {
-	req, err := http.ReadRequest(bytes.Buffer{})
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-func (c *Conn) ingestRes(input io.Reader) (*http.Response, error) {
-	r := bufio.NewReader(input)
-	res, err := http.ReadResponse(r, c.req)
-	if err != nil {
-		return nil, err
-	}
-
-	//c.Log("[RES] %s %s host=%s agent=%s", res.Method, res.URL, req.Host, req.UserAgent())
-
-	return res, nil
+	c.Log("Connection to %s closed (%dms)", c.ClientConn.RemoteAddr(), time.Now().Sub(start).Milliseconds())
 }
 
 func (c *Conn) Log(msg string, args ...interface{}) {

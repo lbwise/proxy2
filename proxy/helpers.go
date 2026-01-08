@@ -1,17 +1,8 @@
-package server
+package proxy
 
 import (
-	"io"
 	"net"
 )
-
-func Forward(r io.Reader, w io.Writer) error {
-	_, err := io.Copy(w, r)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func WriteToConn(conn net.Conn, buf []byte) error {
 	_, err := conn.Write(buf)
@@ -30,7 +21,7 @@ func WriteStringToConn(conn net.Conn, msg string) error {
 }
 
 func ReadFromConn(conn net.Conn) ([]byte, error) {
-	buf := make([]byte, c.readSize)
+	buf := make([]byte, 128)
 	n, err := conn.Read(buf)
 	if err != nil {
 		return nil, err

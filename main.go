@@ -1,17 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/lbwise/proxy/client"
 	"github.com/lbwise/proxy/dest"
-	"github.com/lbwise/proxy/server"
+	"github.com/lbwise/proxy/proxy"
 )
 
 /*
@@ -20,33 +23,60 @@ set up dest srv -> pass config to proxy -> spin up proxy -> create clients -> si
 */
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	wg := &sync.WaitGroup{}
+
 	baseLogger, closer, err := NewBaseLogger()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Sprintf("could not start proxy: %s", err.Error()))
 		return
 	}
 	defer closer()
 
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+	wg.Add(3)
 
-	destLog := log.New(baseLogger.Writer(), "[DEST] ", baseLogger.Flags())
-	destServers, err := dest.SpinServers(destLog)
+	// Spin up destination servers
+	go func() {
+		destLog := log.New(baseLogger.Writer(), "[DEST] ", baseLogger.Flags())
+		_, err := dest.SpinServers(ctx, destLog)
+		if err != nil {
+			return
+		}
+	}()
 
-	proxyLog := log.New(baseLogger.Writer(), "[PROXY] ", baseLogger.Flags())
-	server.SpinServer(
-		server.NewDefaultProxyConfig(&net.TCPAddr{
-			IP:   net.ParseIP(destServers[0].Addr),
-			Port: destServers[0].Port,
-		}),
-		wg, proxyLog)
+	time.Sleep(time.Second)
 
-	clientLog := log.New(baseLogger.Writer(), "[CLIENT] ", baseLogger.Flags())
-	client.Simulate(clientLog)
-	wg.Done()
+	// Spin up proxy
+	go func() {
+		proxyLog := log.New(baseLogger.Writer(), "[PROXY] ", baseLogger.Flags())
+		proxy.SpinServer(
+			ctx,
+			proxy.DefaultConfig(&net.TCPAddr{
+				//IP:   net.ParseIP(destServers[0].Addr),
+				//Port: destServers[0].Port,
+				IP:   net.ParseIP("127.0.0.1"),
+				Port: 8080,
+			}),
+			proxyLog)
+	}()
 
+	time.Sleep(time.Second)
+
+	// Simulate clients
+	go func() {
+		clientLog := log.New(baseLogger.Writer(), "[CLIENT] ", baseLogger.Flags())
+		client.Simulate(ctx, clientLog)
+	}()
+
+	waitCloseSignal()
+	cancel() // cancel context to let everything shut itself down
 	wg.Wait()
-	proxyLog.Println("GRACEFULLY CLOSING SERVER")
+}
+
+func waitCloseSignal() {
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
+	<-done
 }
 
 func NewBaseLogger() (*log.Logger, func() error, error) {
