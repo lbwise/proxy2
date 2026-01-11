@@ -17,5 +17,6 @@ func ParseCfgFile(filename string) (*ProxySimConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	cfg.ProxyConfig.DestPorts = cfg.DestConfig.PortRange
 	return &cfg, nil
 }

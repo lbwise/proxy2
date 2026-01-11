@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -40,13 +41,15 @@ func main() {
 		baseLogger.Fatal(fmt.Sprintf("could not parse config: %s", err.Error()))
 		return
 	}
-	fmt.Printf("%v\n", cf)
 
 	// Spin up destination servers
 	go func() {
 		defer wg.Done()
 		destLog := log.New(baseLogger.Writer(), "[DEST] ", baseLogger.Flags())
-		_, err := dest.SpinServers(ctx, destLog)
+		if !cf.LogContains("dest") {
+			destLog.SetOutput(io.Discard)
+		}
+		_, err := dest.SpinServers(ctx, cf.DestConfig, destLog)
 		if err != nil {
 			return
 		}
@@ -57,7 +60,11 @@ func main() {
 	// Spin up proxy
 	go func() {
 		defer wg.Done()
+
 		proxyLog := log.New(baseLogger.Writer(), "[PROXY] ", baseLogger.Flags())
+		if !cf.LogContains("proxy") {
+			proxyLog.SetOutput(io.Discard)
+		}
 		proxy.SpinServer(
 			ctx,
 			cf.ProxyConfig,
@@ -70,6 +77,9 @@ func main() {
 	go func() {
 		defer wg.Done()
 		clientLog := log.New(baseLogger.Writer(), "[CLIENT] ", baseLogger.Flags())
+		if !cf.LogContains("client") {
+			clientLog.SetOutput(io.Discard)
+		}
 		client.Simulate(ctx, cf.ClientSimulationConfig, clientLog)
 	}()
 
@@ -85,8 +95,8 @@ func waitCloseSignal() {
 }
 
 func NewBaseLogger() (*log.Logger, func() error, error) {
-	dtime := strings.Join(strings.Split(time.Now().String()[:19], " "), "-")
-	f, err := os.Create(fmt.Sprintf("./logs/prox-server-%s", dtime))
+	dTime := strings.Join(strings.Split(time.Now().String()[:19], " "), "-")
+	f, err := os.Create(fmt.Sprintf("./logs/prox-server-%s", dTime))
 	if err != nil {
 		return nil, nil, err
 	}

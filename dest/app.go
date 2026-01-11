@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lbwise/proxy/cfg"
 )
 
 type Server struct {
@@ -17,12 +18,11 @@ type Server struct {
 	Addr string
 }
 
-func SpinServers(ctx context.Context, logger *log.Logger) ([]*Server, error) {
-	servers := []*Server{
-		{Addr: "localhost", Port: 8080, ID: 1},
-		{Addr: "localhost", Port: 8081, ID: 2},
-		{Addr: "localhost", Port: 8082, ID: 3},
-		{Addr: "localhost", Port: 8083, ID: 4},
+func SpinServers(ctx context.Context, config cfg.DestConfig, logger *log.Logger) ([]*Server, error) {
+	ports := config.PortRange.ToArray()
+	servers := make([]*Server, len(ports))
+	for i, port := range ports {
+		servers[i] = &Server{Addr: "localhost", Port: port}
 	}
 
 	var wg sync.WaitGroup

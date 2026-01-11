@@ -6,29 +6,28 @@ proxy:
 
 dest:
   port-range:
-    start: 8080
-    end: 8085
+    start: 8084
+    end: 8090
 
 client:
   port-range:
     start: 5000
     end: 6000
-  instructions:
-    - pre-wait: 0
+  flow:
+    - wait-before: 0ms
       num-agents: 1
       req-path: /ping
 
-    - pre-wait: 2000
+    - wait-before: 2000ms
       num-agents: 2
       req-path: /ping
 
-    - pre-wait: 1000
+    - wait-before: 1000ms
       num-agents: 100
       req-path: /ping
 
 logs:
   - proxy
-  - dest
   - client
 
 
