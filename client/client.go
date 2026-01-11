@@ -35,7 +35,7 @@ func (c *Client) SetDuration(duration int) error {
 }
 
 // Simulate will have a list of instructions that each wait for each
-func Simulate(ctx context.Context, config *cfg.ClientSimulationConfig, logger *log.Logger) {
+func Simulate(ctx context.Context, config cfg.ClientSimulationConfig, logger *log.Logger) {
 	var wg sync.WaitGroup
 	for i, instr := range config.Flow {
 		logger.Printf("Running instruction: %d", i)

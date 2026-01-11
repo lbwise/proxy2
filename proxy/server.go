@@ -10,7 +10,7 @@ import (
 	"github.com/lbwise/proxy/cfg"
 )
 
-func SpinServer(ctx context.Context, config *cfg.ProxyConfig, logger *log.Logger) {
+func SpinServer(ctx context.Context, config cfg.ProxyConfig, logger *log.Logger) {
 	ln, err := net.Listen("tcp", ":9000")
 	if err != nil {
 		logger.Fatal(err)
@@ -58,7 +58,7 @@ func SpinServer(ctx context.Context, config *cfg.ProxyConfig, logger *log.Logger
 	logger.Println("Shutting down proxy")
 }
 
-func connectToDest(config *cfg.ProxyConfig) (net.Conn, error) {
+func connectToDest(config cfg.ProxyConfig) (net.Conn, error) {
 	destNetConn, err := net.Dial("tcp", getDestAddr(config))
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func connectToDest(config *cfg.ProxyConfig) (net.Conn, error) {
 }
 
 // This will need to be some proxy struct method to analyze bandwith for other deciding
-func getDestAddr(config *cfg.ProxyConfig) string {
+func getDestAddr(config cfg.ProxyConfig) string {
 	switch config.LoadBalanceType {
 	default:
 		return fmt.Sprintf("%s:%d", config.DestAddr, config.DestPorts.Random())

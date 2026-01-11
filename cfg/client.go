@@ -16,22 +16,23 @@ func DefaultCSConfig() *ClientSimulationConfig {
 			{WaitBefore: 2 * time.Second, NumAgents: 2, ReqPath: "/ping"},
 			{WaitBefore: 0, NumAgents: 1, ReqPath: "/ping"},
 			{WaitBefore: 5 * time.Second, NumAgents: 1, ReqPath: "/ping"},
+			{WaitBefore: 10 * time.Second, NumAgents: 100, ReqPath: "/ping"},
 		},
 	}
 
 }
 
 type ClientSimulationConfig struct {
-	ClientAddr string
-	ProxyAddr  string
-	ProxyPort  Port
-	PortRange
-	Flow []CSInstruction
+	ClientAddr string          `yaml:"client-addr"`
+	ProxyAddr  string          `yaml:"proxy-addr"`
+	ProxyPort  Port            `yaml:"proxy-port"`
+	PortRange  PortRange       `yaml:"port-range"`
+	Flow       []CSInstruction `yaml:"flow"`
 }
 
 type CSInstruction struct {
-	WaitBefore time.Duration
-	NumAgents  int
-	ReqPath    string
-	ReqBody    io.Reader
+	WaitBefore time.Duration `yaml:"wait-before"`
+	NumAgents  int           `yaml:"num-agents"`
+	ReqPath    string        `yaml:"req-path"`
+	ReqBody    io.Reader     `yaml:"req-body"`
 }

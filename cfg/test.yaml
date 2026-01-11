@@ -1,0 +1,35 @@
+proxy:
+  port: 9001
+  load-balance: round-robin
+  blacklist:
+    - 127.0.1.1
+
+dest:
+  port-range:
+    start: 8080
+    end: 8085
+
+client:
+  port-range:
+    start: 5000
+    end: 6000
+  instructions:
+    - pre-wait: 0
+      num-agents: 1
+      req-path: /ping
+
+    - pre-wait: 2000
+      num-agents: 2
+      req-path: /ping
+
+    - pre-wait: 1000
+      num-agents: 100
+      req-path: /ping
+
+logs:
+  - proxy
+  - dest
+  - client
+
+
+

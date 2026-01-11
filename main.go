@@ -35,15 +35,12 @@ func main() {
 
 	wg.Add(3)
 
-	csConfig := cfg.DefaultCSConfig()
-
-	destPorts := cfg.PortRange{Start: 8080, End: 8084}
-	cf := &cfg.ProxySimConfig{
-		DestAddr:               "localhost",
-		DestPortRange:          destPorts,
-		ClientSimulationConfig: csConfig,
-		ProxyConfig:            cfg.DefaultProxyConfig("localhost", destPorts),
+	cf, err := cfg.ParseCfgFile("./cfg/test.yaml")
+	if err != nil {
+		baseLogger.Fatal(fmt.Sprintf("could not parse config: %s", err.Error()))
+		return
 	}
+	fmt.Printf("%v\n", cf)
 
 	// Spin up destination servers
 	go func() {
