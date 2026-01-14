@@ -40,9 +40,10 @@ const (
 )
 
 type ProxyConfig struct {
-	ProxyPort       int             `yaml:"port"`
-	LoadBalanceType LoadBalanceType `yaml:"load-balance"`
-	IPBlacklist     []net.IP        `yaml:"blacklist"`
-	DestAddr        string          `yaml:"dest-addr"`
-	DestPorts       PortRange       `yaml:"dest-ports"`
+	ProxyPort          int             `yaml:"port"`
+	LoadBalanceType    LoadBalanceType `yaml:"load-balance"`
+	IPBlacklist        []net.IP        `yaml:"blacklist"`
+	DestAddr           string          `yaml:"dest-addr"`
+	DestPorts          PortRange       `yaml:"dest-ports"`
+	ServerConnPoolSize uint8           `yaml:"srv-pool-size"`
 }

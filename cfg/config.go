@@ -34,7 +34,7 @@ type PortRange struct {
 }
 
 func (r PortRange) Random() Port {
-	return Port(rand.Intn(int(r.End)-int(r.Start)) + int(r.Start))
+	return Port(rand.Intn(r.Size()) + int(r.Start))
 }
 
 func (r PortRange) Next(cur Port) Port {
@@ -49,11 +49,15 @@ func (r PortRange) ToArray() []int {
 		return []int{}
 	}
 
-	ports := make([]int, r.End-r.Start)
-	for i := 0; i < int(r.End)-int(r.Start); i++ {
+	ports := make([]int, r.Size())
+	for i := 0; i < r.Size(); i++ {
 		ports[i] = int(r.Start) + i
 	}
 	return ports
+}
+
+func (r PortRange) Size() int {
+	return int(r.End) - int(r.Start)
 }
 
 type ProxySimConfig struct {

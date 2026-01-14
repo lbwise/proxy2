@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -50,18 +51,27 @@ func createApp(ctx context.Context, srv *Server, logger *log.Logger) error {
 	httpSrv := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", srv.Addr, srv.Port),
 		Handler: router,
+		ConnState: func(conn net.Conn, state http.ConnState) {
+			switch state {
+			//case http.StateNew:
+			//	logger.Println("DEST RECEIVED NET CONNECTION")
+			//case http.StateIdle:
+			//	logger.Println("DEST HAS IDLE CONNECTION")
+			default:
+				return
+			}
+		},
 	}
 	logger.Printf("Spinning up instance on: %d\n", srv.Port)
 
 	router.GET("/ping", func(c *gin.Context) {
-		logger.Println("RECIEVED", srv.ID, c.Request.Method)
+		logger.Println("RECEIVED", srv.ID, c.Request.Method)
 		time.Sleep(1 * time.Second)
 		c.String(http.StatusOK, "pong")
 	})
 
 	go func() {
 		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			// we got an actual error here
 			logger.Fatalf("Error starting HTTP server: %s", err.Error())
 		}
 	}()

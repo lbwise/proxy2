@@ -1,8 +1,9 @@
 proxy:
   port: 9001
   load-balance: round-robin
-  blacklist:
-    - 127.0.1.1
+  srv-pool-size: 10
+#  blacklist:
+#    - 127.0.0.1:62196
 
 dest:
   port-range:
@@ -28,7 +29,7 @@ client:
 
 logs:
   - proxy
-  - client
+  - dest
 
 
 

@@ -65,10 +65,8 @@ func main() {
 		if !cf.LogContains("proxy") {
 			proxyLog.SetOutput(io.Discard)
 		}
-		proxy.SpinServer(
-			ctx,
-			cf.ProxyConfig,
-			proxyLog)
+		p := proxy.New(&cf.ProxyConfig, proxyLog)
+		p.SpinServer(ctx)
 	}()
 
 	time.Sleep(time.Second)
