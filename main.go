@@ -18,11 +18,6 @@ import (
 	"github.com/lbwise/proxy/proxy"
 )
 
-/*
-Okay so really we want in order:
-set up dest srv -> pass config to proxy -> spin up proxy -> create clients -> simulate traffic
-*/
-
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
@@ -54,8 +49,6 @@ func main() {
 			return
 		}
 	}()
-
-	time.Sleep(time.Second)
 
 	// Spin up proxy
 	go func() {

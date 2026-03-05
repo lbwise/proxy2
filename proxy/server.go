@@ -10,10 +10,6 @@ import (
 )
 
 func New(config *cfg.ProxyConfig, logger *log.Logger) *Proxy {
-	//for _, port := range config.DestPorts {
-	//
-	//}
-	//
 	return &Proxy{
 		logger:        logger,
 		config:        config,
@@ -61,8 +57,6 @@ func (p *Proxy) SpinServer(ctx context.Context) {
 		p.logger.Fatal(err)
 		return
 	}
-	p.logger.Println("CONNECTION POOL CREATED")
-	p.logger.Println(p.destConnPools)
 
 	var wg sync.WaitGroup
 	for {
@@ -84,7 +78,7 @@ func (p *Proxy) SpinServer(ctx context.Context) {
 		p.logger.Printf("accented new connection from %v", clientNetConn.RemoteAddr())
 		destConnAddr, destConn := p.connectToDest()
 
-		conn := NewConn(clientNetConn, destConn, p.logger)
+		ch := NewConnHandler(clientNetConn, destConn, p.logger)
 		if err != nil {
 			p.logger.Println("[ERR]:", err)
 		}
@@ -93,7 +87,7 @@ func (p *Proxy) SpinServer(ctx context.Context) {
 		go func() {
 			defer p.destConnPools[destConnAddr.String()].Release(destConn) // This is so gross make this nicer
 			defer wg.Done()
-			conn.Handle(ctx) // TODO: handle requests with cancel signal
+			ch.Handle(ctx) // TODO: handle requests with cancel context
 		}()
 
 	}

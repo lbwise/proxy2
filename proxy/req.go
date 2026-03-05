@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"net/http"
 	"sync/atomic"
 	"time"
 )
@@ -11,6 +12,7 @@ func NewRequest(raw []byte) *Request {
 		ID:    GenNextReqId(),
 		start: time.Now(),
 		raw:   bytes.NewBuffer(raw),
+		In:    &http.Request{},
 	}
 }
 
@@ -28,6 +30,8 @@ type Request struct {
 	start    time.Time
 	duration time.Duration
 	raw      *bytes.Buffer
+	In       *http.Request
+	Out      *http.Request
 }
 
 type RequestStatus int
